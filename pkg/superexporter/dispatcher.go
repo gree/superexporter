@@ -9,67 +9,81 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+)
+
+const (
+	cleanupPeriodSeconds           = 60
+	workerInactiveThresholdSeconds = 300
 )
 
 type Target struct {
 	host string
 	port string
+	kind string
 }
 
 func (t *Target) id() string {
 	return t.host + "-" + t.port
 }
 
+type WorkerInfo struct {
+	//kind   string
+	worker        *Worker
+	lastRequestAt time.Time
+}
+
 type Dispatcher struct {
-	orkerCmd    []string
-	workers     map[string]*Worker
-	lastCleanup int64
+	//workerCmd   []string
+	workersInfo   map[string]*WorkerInfo
+	lastCleanupAt time.Time
 }
 
 func NewDispatcher() *Dispatcher {
 	initSigHandler()
-	m := map[string]*Worker{}
-	return &Dispatcher{workers: m}
+	wi := map[string]*WorkerInfo{}
+	return &Dispatcher{workersInfo: wi}
 }
 
 func (d *Dispatcher) CleanupAll() {
-	log.Println("Finalize!!!!!!!!")
-	for _, v := range d.workers {
-		if err := DestoryWorker(v); err != nil {
-			log.Fatal(err)
+	log.Println("Cleanup All Workers")
+	for _, wi := range d.workersInfo {
+		if err := DestoryWorker(wi.worker); err != nil {
+			log.Print("Cleanup Error!!!!!", err)
 		}
 	}
 }
 
 func (srv *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
-	//w.Write([]byte("Hello..."))
+	defer srv.periodicCleanup()
 	targetStr := r.URL.Query().Get("target")
 	fmt.Println("target:", targetStr)
 
 	parsedUrl, err := url.Parse("unix://" + targetStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
 	}
 	host, port, _ := net.SplitHostPort(parsedUrl.Host)
-	log.Print("host:", host, " port:", port)
-	target := Target{host: host, port: port}
+	kind := "memcached"
+	log.Print("kind:", kind, "host:", host, " port:", port)
+	target := Target{host: host, port: port, kind: kind}
 
-	worker, ok := srv.workers[target.id()]
+	wi, ok := srv.workersInfo[target.id()]
 	if !ok {
 		log.Print("create new worker!")
-		//worker, err := CreateWorker([]string{"sleep", "45"})
 		worker, err := CreateWorker(&target)
 		if err != nil {
 			log.Print("err!!!", err)
 			return
 		}
-		srv.workers[target.id()] = worker
+		wi = &WorkerInfo{worker: worker}
+		srv.workersInfo[target.id()] = wi
 	}
 	log.Print("let's request")
-	if err := worker.Request(&w, r); err != nil {
+	if err := wi.worker.Request(&w, r); err != nil {
 		return
 	}
-	//srv.cleanup()
+	wi.lastRequestAt = time.Now()
 }
 
 func initSigHandler() {
@@ -85,6 +99,15 @@ func initSigHandler() {
 	}()
 }
 
-func (srv *Dispatcher) cleanup() {
-
+func (srv *Dispatcher) periodicCleanup() {
+	log.Print("yeeey, periodic cleanup ")
+	now := time.Now()
+	if int(now.Sub(srv.lastCleanupAt).Seconds()) >= cleanupPeriodSeconds {
+		for _, wi := range srv.workersInfo {
+			if int(now.Sub(wi.lastRequestAt).Seconds()) >= workerInactiveThresholdSeconds {
+				defer DestoryWorker(wi.worker)
+			}
+		}
+		srv.lastCleanupAt = now
+	}
 }

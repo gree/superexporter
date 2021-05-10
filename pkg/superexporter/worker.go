@@ -12,17 +12,16 @@ import (
 )
 
 type Worker struct {
-	pid             int
-	cmd             []string
-	sockName        string
-	client          *http.Client
-	lastPerformedAt int64
+	pid      int
+	cmd      []string
+	sockName string
+	client   *http.Client
 }
 
 //func CreateWorker(cmd []string) (*Worker, error) {
 func CreateWorker(t *Target) (*Worker, error) {
 	log.Print("[worker] tgt:", t)
-	w := &Worker{cmd: []string{"sleep", "40"}, sockName: t.id()}
+	w := &Worker{cmd: []string{"sleep", "60"}, sockName: t.id()}
 	if err := w.spawn(); err != nil {
 		return nil, err
 	}

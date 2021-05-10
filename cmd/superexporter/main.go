@@ -20,7 +20,7 @@ func main() {
 	srv := &http.Server{Addr: ":9292"}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
+			log.Fatal(err)
 		}
 	}()
 
