@@ -40,7 +40,6 @@ func init() {
 	//log.Print("exporter options:", memcachedExporterOptions)
 }
 
-//func CreateWorker(cmd []string) (*Worker, error) {
 func CreateWorker(t *Target) (*Worker, error) {
 	log.Print("[worker] tgt:", t)
 	tmpl, err := template.New("optTmpl").Parse(memcachedExporterOptions)
@@ -60,7 +59,6 @@ func CreateWorker(t *Target) (*Worker, error) {
 	optStr := buf.String()
 	log.Print("exporter options:", optStr)
 
-	//w := &Worker{cmd: []string{"sleep", "60"}, sockName: t.id()}
 	cmd := append([]string{memcachedExporterBin}, strings.Split(optStr, " ")...)
 	w := &Worker{cmd: cmd, sockName: sockName}
 	if err := w.spawn(); err != nil {

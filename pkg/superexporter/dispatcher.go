@@ -17,25 +17,13 @@ const (
 	workerInactiveThresholdSeconds = 300
 )
 
-type Target struct {
-	Host string
-	Port string
-	kind string
-}
-
-func (t *Target) id() string {
-	return t.Host + "-" + t.Port
-}
-
 type WorkerInfo struct {
-	//kind   string
 	worker        *Worker
 	target        *Target
 	lastRequestAt time.Time
 }
 
 type Dispatcher struct {
-	//workerCmd   []string
 	workersInfo   map[string]*WorkerInfo
 	lastCleanupAt time.Time
 }
@@ -53,8 +41,8 @@ func (d *Dispatcher) CleanupAll() {
 	}
 }
 
-func (srv *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
-	defer srv.periodicCleanup()
+func (d *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
+	defer d.periodicCleanup()
 	targetStr := r.URL.Query().Get("target")
 	fmt.Println("target:", targetStr)
 
@@ -67,21 +55,14 @@ func (srv *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 	log.Print("kind:", kind, " host:", host, " port:", port)
 	target := Target{Host: host, Port: port, kind: kind}
 
-	wi, ok := srv.workersInfo[target.id()]
+	wi, ok := d.workersInfo[target.id()]
 	if !ok {
 		log.Print("create new worker")
-		wi, err = srv.addWorkerInfo(&target)
+		wi, err = d.addWorkerInfo(&target)
 		if err != nil {
 			log.Print("err:", err)
 			return
 		}
-		/* worker, err := CreateWorker(&target)
-		if err != nil {
-			log.Print("err:", err)
-			return
-		}
-		wi = &WorkerInfo{worker: worker}
-		srv.workersInfo[target.id()] = wi */
 	}
 	log.Print("do request")
 	if err := wi.worker.Request(&w, r); err != nil {
@@ -91,22 +72,22 @@ func (srv *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 	wi.lastRequestAt = time.Now()
 }
 
-func (srv *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
+func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
 	worker, err := CreateWorker(t)
 	if err != nil {
 		log.Print("err:", err)
 		return nil, err
 	}
 	wi := &WorkerInfo{worker: worker, target: t}
-	srv.workersInfo[t.id()] = wi
+	d.workersInfo[t.id()] = wi
 	return wi, nil
 }
 
-func (srv *Dispatcher) removeWorkerInfo(wi *WorkerInfo) {
+func (d *Dispatcher) removeWorkerInfo(wi *WorkerInfo) {
 	if err := DestoryWorker(wi.worker); err != nil {
 		log.Print("DestoryWorker Error!", err)
 	}
-	delete(srv.workersInfo, wi.target.id())
+	delete(d.workersInfo, wi.target.id())
 }
 
 func initSigHandler() {
@@ -123,16 +104,15 @@ func initSigHandler() {
 	}()
 }
 
-func (srv *Dispatcher) periodicCleanup() {
+func (d *Dispatcher) periodicCleanup() {
 	now := time.Now()
-	if int(now.Sub(srv.lastCleanupAt).Seconds()) >= cleanupPeriodSeconds {
+	if int(now.Sub(d.lastCleanupAt).Seconds()) >= cleanupPeriodSeconds {
 		log.Print("periodic cleanup")
-		for _, wi := range srv.workersInfo {
+		for _, wi := range d.workersInfo {
 			if int(now.Sub(wi.lastRequestAt).Seconds()) >= workerInactiveThresholdSeconds {
-				//defer DestoryWorker(wi.worker)
-				defer srv.removeWorkerInfo(wi)
+				defer d.removeWorkerInfo(wi)
 			}
 		}
-		srv.lastCleanupAt = now
+		d.lastCleanupAt = now
 	}
 }

@@ -11,8 +11,6 @@ import (
 	"../../pkg/superexporter"
 )
 
-//	"../../pkg/superexporter"
-
 func main() {
 	dispatcher := superexporter.NewDispatcher()
 
