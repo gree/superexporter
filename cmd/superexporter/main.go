@@ -15,7 +15,7 @@ func main() {
 	dispatcher := superexporter.NewDispatcher()
 
 	http.HandleFunc("/scrape", dispatcher.Handler)
-	srv := &http.Server{Addr: ":9292"}
+	srv := &http.Server{Addr: ":9150"}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
 			log.Fatal(err)
