@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"../../pkg/superexporter"
+	"superexporter/pkg/superexporter"
 )
 
 func main() {

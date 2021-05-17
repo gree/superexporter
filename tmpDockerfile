@@ -1,0 +1,11 @@
+FROM circleci/golang:1.16 as builder
+WORKDIR /build
+COPY . /build
+RUN make
+
+FROM asia.gcr.io/gree-eval/koma-memcached_exporter
+COPY --from=builder /build/superexporter /bin/superexporter
+
+USER       nobody
+ENTRYPOINT ["/bin/superexporter"]
+EXPOSE     9150
