@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"os/exec"
 	"strings"
@@ -102,11 +102,12 @@ func (w *Worker) Request(writerRef *http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	responseByte, err := httputil.DumpResponse(response, true)
+	defer response.Body.Close()
+	responseBodyByte, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
-	_, err = (*writerRef).Write(responseByte)
+	_, err = (*writerRef).Write(responseBodyByte)
 	if err != nil {
 		return err
 	}
