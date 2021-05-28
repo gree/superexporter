@@ -3,7 +3,7 @@ WORKDIR /build
 COPY . /build
 RUN make
 
-FROM asia.gcr.io/gree-eval/koma-memcached_exporter
+FROM 712427753857.dkr.ecr.ap-northeast-1.amazonaws.com/gree-monitoring/memcached_exporter:0.9.0-9
 COPY --from=builder /build/superexporter /bin/superexporter
 
 WORKDIR /app/superexporter
