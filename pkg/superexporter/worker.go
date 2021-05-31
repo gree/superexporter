@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -103,7 +103,7 @@ func (w *Worker) Request(writerRef *http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 	defer response.Body.Close()
-	responseBodyByte, err := io.ReadAll(response.Body)
+	responseBodyByte, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
