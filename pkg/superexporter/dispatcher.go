@@ -2,7 +2,6 @@ package superexporter
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -10,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/go-kit/log"
 )
 
 const (
@@ -26,16 +27,17 @@ type WorkerInfo struct {
 type Dispatcher struct {
 	workersInfo   map[string]*WorkerInfo
 	lastCleanupAt time.Time
+	logger        log.Logger
 }
 
-func NewDispatcher() *Dispatcher {
+func NewDispatcher(logger log.Logger) *Dispatcher {
 	initSigHandler()
 	wi := map[string]*WorkerInfo{}
-	return &Dispatcher{workersInfo: wi}
+	return &Dispatcher{workersInfo: wi, logger: logger}
 }
 
 func (d *Dispatcher) CleanupAll() {
-	log.Println("Cleanup All Workers")
+	d.logger.Log("severity", "INFO", "msg", "Cleanup All Workers")
 	for _, wi := range d.workersInfo {
 		d.removeWorkerInfo(wi)
 	}
@@ -48,34 +50,34 @@ func (d *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 
 	parsedUrl, err := url.Parse("unix://" + targetStr)
 	if err != nil {
-		log.Print(err)
+		d.logger.Log("severity", "ERROR", "err", err)
 	}
 	host, port, _ := net.SplitHostPort(parsedUrl.Host)
 	kind := "memcached"
-	log.Print("kind:", kind, " host:", host, " port:", port)
+	d.logger.Log("severity", "INFO", "msg", fmt.Sprintf("kind:%s host:%s port:%s", kind, host, port))
 	target := Target{Host: host, Port: port, kind: kind}
 
 	wi, ok := d.workersInfo[target.id()]
 	if !ok {
-		log.Print("create new worker")
+		d.logger.Log("severity", "INFO", "msg", "create new worker")
 		wi, err = d.addWorkerInfo(&target)
 		if err != nil {
-			log.Print("err:", err)
+			d.logger.Log("severity", "ERROR", "err", err)
 			return
 		}
 	}
-	log.Print("do request")
+	d.logger.Log("severity", "INFO", "msg", "do request")
 	if err := wi.worker.Request(&w, r); err != nil {
-		log.Print(err)
+		d.logger.Log("severity", "ERROR", "err", err)
 		return
 	}
 	wi.lastRequestAt = time.Now()
 }
 
 func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
-	worker, err := CreateWorker(t)
+	worker, err := CreateWorker(t, d.logger)
 	if err != nil {
-		log.Print("err:", err)
+		d.logger.Log("severity", "ERROR", "err", err)
 		return nil, err
 	}
 	wi := &WorkerInfo{worker: worker, target: t}
@@ -85,7 +87,7 @@ func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
 
 func (d *Dispatcher) removeWorkerInfo(wi *WorkerInfo) {
 	if err := DestoryWorker(wi.worker); err != nil {
-		log.Print("DestoryWorker Error!", err)
+		d.logger.Log("severity", "ERROR", "err", err, "msg", "DestoryWorker Error!")
 	}
 	delete(d.workersInfo, wi.target.id())
 }
@@ -107,7 +109,7 @@ func initSigHandler() {
 func (d *Dispatcher) periodicCleanup() {
 	now := time.Now()
 	if int(now.Sub(d.lastCleanupAt).Seconds()) >= cleanupPeriodSeconds {
-		log.Print("periodic cleanup")
+		d.logger.Log("severity", "INFO", "msg", "periodic cleanup")
 		for _, wi := range d.workersInfo {
 			if int(now.Sub(wi.lastRequestAt).Seconds()) >= workerInactiveThresholdSeconds {
 				defer d.removeWorkerInfo(wi)

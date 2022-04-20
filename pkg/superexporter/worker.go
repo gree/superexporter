@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +13,8 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+
+	"github.com/go-kit/log"
 )
 
 /* worker for memcached_exporter */
@@ -22,6 +23,7 @@ type Worker struct {
 	cmd      []string
 	sockName string
 	client   *http.Client
+	logger   log.Logger
 }
 
 var (
@@ -33,18 +35,19 @@ func init() {
 	if memcachedExporterBin == "" {
 		memcachedExporterBin = "memcached_exporter"
 	}
-	log.Print("exporter bin:", memcachedExporterBin)
+	fmt.Println("exporter bin:", memcachedExporterBin)
 	if memcachedExporterOptions == "" {
 		memcachedExporterOptions = "--web.listen-address unix://{{.SockName}} --memcached.address {{.Target.Host}}:{{.Target.Port}} --web.telemetry-path /metrics"
 	}
 	//log.Print("exporter options:", memcachedExporterOptions)
 }
 
-func CreateWorker(t *Target) (*Worker, error) {
-	log.Print("[worker] tgt:", t)
+func CreateWorker(t *Target, logger log.Logger) (*Worker, error) {
+	logger.Log("severity", "INFO", "msg", fmt.Sprintf("[worker] tgt: %s", t))
+
 	tmpl, err := template.New("optTmpl").Parse(memcachedExporterOptions)
 	if err != nil {
-		log.Print("error: memcachedExporterOptions:", memcachedExporterOptions)
+		logger.Log("severity", "ERROR", "err", fmt.Sprintf("error: memcachedExporterOptions: %s", memcachedExporterOptions))
 		return nil, err
 	}
 	buf := new(bytes.Buffer)
@@ -57,15 +60,15 @@ func CreateWorker(t *Target) (*Worker, error) {
 		return nil, err
 	}
 	optStr := buf.String()
-	log.Print("exporter options:", optStr)
+	logger.Log("severity", "INFO", "msg", fmt.Sprintf("exporter options: %s", optStr))
 
 	cmd := append([]string{memcachedExporterBin}, strings.Split(optStr, " ")...)
-	w := &Worker{cmd: cmd, sockName: sockName}
+	w := &Worker{cmd: cmd, sockName: sockName, logger: logger}
 	if err := w.spawn(); err != nil {
 		return nil, err
 	}
 	time.Sleep(time.Second * 1)
-	log.Print("worker created")
+	logger.Log("severity", "INFO", "msg", "worker created")
 	return w, nil
 }
 
@@ -94,7 +97,7 @@ func (w *Worker) Release() error {
 }
 
 func (w *Worker) Request(writerRef *http.ResponseWriter, r *http.Request) error {
-	fmt.Println("request!!")
+	w.logger.Log("severity", "DEBUG", "msg", "start request")
 	//(*writerRef).Write([]byte(`hello world`))
 	//return nil
 
