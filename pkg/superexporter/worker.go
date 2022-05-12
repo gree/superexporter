@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
 /* worker for memcached_exporter */
@@ -39,15 +40,12 @@ func init() {
 	if memcachedExporterOptions == "" {
 		memcachedExporterOptions = "--web.listen-address unix://{{.SockName}} --memcached.address {{.Target.Host}}:{{.Target.Port}} --web.telemetry-path /metrics"
 	}
-	//log.Print("exporter options:", memcachedExporterOptions)
 }
 
 func CreateWorker(t *Target, logger log.Logger) (*Worker, error) {
-	logger.Log("severity", "INFO", "msg", fmt.Sprintf("[worker] tgt: %s", t))
-
 	tmpl, err := template.New("optTmpl").Parse(memcachedExporterOptions)
 	if err != nil {
-		logger.Log("severity", "ERROR", "err", fmt.Sprintf("error: memcachedExporterOptions: %s", memcachedExporterOptions))
+		level.Error(logger).Log("msg", "memcachedExporterOptions parse error", "err", fmt.Sprintf("error: memcachedExporterOptions: %s", memcachedExporterOptions))
 		return nil, err
 	}
 	buf := new(bytes.Buffer)
@@ -60,7 +58,7 @@ func CreateWorker(t *Target, logger log.Logger) (*Worker, error) {
 		return nil, err
 	}
 	optStr := buf.String()
-	logger.Log("severity", "INFO", "msg", fmt.Sprintf("exporter options: %s", optStr))
+	level.Info(logger).Log("msg", fmt.Sprintf("exporter options: %s", optStr))
 
 	cmd := append([]string{memcachedExporterBin}, strings.Split(optStr, " ")...)
 	w := &Worker{cmd: cmd, sockName: sockName, logger: logger}
@@ -68,7 +66,7 @@ func CreateWorker(t *Target, logger log.Logger) (*Worker, error) {
 		return nil, err
 	}
 	time.Sleep(time.Second * 1)
-	logger.Log("severity", "INFO", "msg", "worker created")
+	level.Info(logger).Log("msg", fmt.Sprintf("worker created: %s", t.id()))
 	return w, nil
 }
 
@@ -97,9 +95,7 @@ func (w *Worker) Release() error {
 }
 
 func (w *Worker) Request(writerRef *http.ResponseWriter, r *http.Request) error {
-	w.logger.Log("severity", "DEBUG", "msg", "start request")
-	//(*writerRef).Write([]byte(`hello world`))
-	//return nil
+	level.Debug(w.logger).Log("msg", "start request")
 
 	response, err := w.client.Get("http://unix/metrics")
 	if err != nil {

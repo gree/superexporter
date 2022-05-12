@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	stdlog "log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,18 +9,27 @@ import (
 
 	"superexporter/pkg/superexporter"
 
-	kitlog "github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/prometheus/common/promlog"
+	"github.com/prometheus/common/promlog/flag"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
-	logger := kitlog.NewJSONLogger(kitlog.NewSyncWriter(os.Stdout))
+	promlogConfig := &promlog.Config{}
+	flag.AddFlags(kingpin.CommandLine, promlogConfig)
+	kingpin.HelpFlag.Short('h')
+	kingpin.Parse()
+	logger := promlog.New(promlogConfig)
+
 	dispatcher := superexporter.NewDispatcher(logger)
 
 	http.HandleFunc("/scrape", dispatcher.Handler)
 	srv := &http.Server{Addr: ":9150"}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			stdlog.Fatal(err)
+			level.Error(logger).Log("msg", "ListenAndServe err", "err", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -30,6 +38,6 @@ func main() {
 	<-sig
 	dispatcher.CleanupAll()
 	if err := srv.Shutdown(context.TODO()); err != nil {
-		stdlog.Println(err)
+		level.Error(logger).Log("msg", "failed to shutdown server", "err", err)
 	}
 }
