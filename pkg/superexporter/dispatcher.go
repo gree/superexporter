@@ -1,6 +1,7 @@
 package superexporter
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,7 +21,7 @@ const (
 )
 
 type WorkerInfo struct {
-	worker        *Worker
+	worker        WorkerInterface
 	target        *Target
 	lastRequestAt time.Time
 }
@@ -77,7 +78,14 @@ func (d *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
-	worker, err := CreateWorker(t, d.logger)
+	var worker WorkerInterface
+	var err error
+	switch t.kind {
+	case "memcached":
+		worker, err = CreateMemcachedWorker(t, d.logger)
+	default:
+		return nil, errors.New("not supported")
+	}
 	if err != nil {
 		level.Error(d.logger).Log("msg", "CreateWorker failed", "err", err)
 		return nil, err
@@ -88,7 +96,7 @@ func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
 }
 
 func (d *Dispatcher) removeWorkerInfo(wi *WorkerInfo) {
-	if err := DestoryWorker(wi.worker); err != nil {
+	if err := wi.worker.Destroy(); err != nil {
 		level.Error(d.logger).Log("msg", "DestoryWorker failed", "err", err)
 	}
 	delete(d.workersInfo, wi.target.id())
