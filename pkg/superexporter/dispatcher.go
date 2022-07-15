@@ -50,7 +50,7 @@ func (d *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 	targetStr := r.URL.Query().Get("target")
 	level.Debug(d.logger).Log("msg", fmt.Sprintf("target:%s", targetStr))
 
-	parsedUrl, err := url.Parse("unix://" + targetStr)
+	parsedUrl, err := url.Parse("http://" + targetStr)
 	if err != nil {
 		level.Error(d.logger).Log("msg", "Failed to url.Parse", "err", err)
 		return

@@ -20,13 +20,15 @@ import (
 )
 
 type MemcachedWorker struct {
-	pid int
-	cmd []string
+	target *Target
+	logger log.Logger
+	client *http.Client
+	st     MemcachedWorkerStatus
+}
 
-	target       *Target
-	client       *http.Client
+type MemcachedWorkerStatus struct {
+	pid          int
 	childAddress *url.URL
-	logger       log.Logger
 }
 
 var (
@@ -38,15 +40,16 @@ func init() {
 	if memcachedExporterBin == "" {
 		memcachedExporterBin = "memcached_exporter"
 	}
-	fmt.Println("exporter bin:", memcachedExporterBin)
+	fmt.Println("memcached exporter bin: ", memcachedExporterBin)
 	if memcachedExporterOptions == "" {
-		memcachedExporterOptions = "--web.listen-address {{.ListenAddr.Host}}:{{.ListenAddr.Port()}} --memcached.address {{.Target.Host}}:{{.Target.Port}} --web.telemetry-path /metrics"
+		memcachedExporterOptions = "--web.listen-address {{.ListenAddr}} --memcached.address {{.Target.Host}}:{{.Target.Port}} --web.telemetry-path /metrics"
 	}
+	fmt.Println("memcached exporter options: ", memcachedExporterOptions)
 }
 
 func CreateMemcachedWorker(t *Target, logger log.Logger) (*MemcachedWorker, error) {
 	w := &MemcachedWorker{target: t, client: httpClient(), logger: logger}
-	err := w.spawnWithAvailablePort(memcachedExporterBin + " " + memcachedExporterOptions)
+	err := w.spawn(memcachedExporterBin + " " + memcachedExporterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -55,12 +58,12 @@ func CreateMemcachedWorker(t *Target, logger log.Logger) (*MemcachedWorker, erro
 }
 
 func (w *MemcachedWorker) Destroy() error {
-	return syscall.Kill(w.pid, syscall.SIGTERM)
+	return syscall.Kill(w.st.pid, syscall.SIGTERM)
 }
 
 func (w *MemcachedWorker) Request(writerRef *http.ResponseWriter, _ *http.Request) error {
 	level.Debug(w.logger).Log("msg", "start request")
-	response, err := w.client.Get(w.childAddress.String() + "/metrics")
+	response, err := w.client.Get(w.st.childAddress.String() + "/metrics")
 	if err != nil {
 		return err
 	}
@@ -76,12 +79,23 @@ func (w *MemcachedWorker) Request(writerRef *http.ResponseWriter, _ *http.Reques
 	return nil
 }
 
-func (w *MemcachedWorker) spawnWithAvailablePort(cmdTpl string) error {
+func buildCmdStr(cmdTpl string, la string, t *Target) (string, error) {
 	tmpl, err := template.New("cmdTpl").Parse(cmdTpl)
 	if err != nil {
-		return err
+		return "", err
 	}
+	buf := new(bytes.Buffer)
+	err = tmpl.Execute(buf, struct {
+		ListenAddr string
+		Target     *Target
+	}{la, t})
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
 
+func (w *MemcachedWorker) spawn(cmdTpl string) error {
 	localPort, err := probablyAvailableLocalPort()
 	if err != nil {
 		return err
@@ -90,25 +104,21 @@ func (w *MemcachedWorker) spawnWithAvailablePort(cmdTpl string) error {
 	if err != nil {
 		return err
 	}
-	w.childAddress = u
-
-	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, struct {
-		ListenAddr *url.URL
-		Target     *Target
-	}{u, w.target})
+	level.Debug(w.logger).Log("msg", "cmdTpl: "+cmdTpl)
+	cmdStr, err := buildCmdStr(cmdTpl, u.Host, w.target)
 	if err != nil {
 		return err
 	}
-	cmdStr := strings.Split(buf.String(), " ")
-	level.Info(w.logger).Log("msg", fmt.Sprintf("exporter cmd: %s", cmdStr))
+	level.Debug(w.logger).Log("msg", "cmdStr: "+cmdStr)
 
-	cmd := exec.CommandContext(context.TODO(), cmdStr[0], cmdStr[1:]...)
+	commands := strings.Split(cmdStr, " ")
+	cmd := exec.CommandContext(context.TODO(), commands[0], commands[1:]...)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	w.pid = cmd.Process.Pid
-	level.Info(w.logger).Log("msg", fmt.Sprintf("exporter process for %s is running with PID:%s", w.target.id(), w.pid))
+	w.st.childAddress = u
+	w.st.pid = cmd.Process.Pid
+	level.Info(w.logger).Log("msg", fmt.Sprintf("exporter process for %s is running with PID:%d", w.target.id(), w.st.pid))
 
 	return nil
 }

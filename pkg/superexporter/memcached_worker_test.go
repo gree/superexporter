@@ -1,44 +1,51 @@
 package superexporter
 
 import (
-	"net/http"
-	"net/url"
 	"testing"
-
-	"github.com/go-kit/log"
 )
 
-func TestMemcachedWorker_spawnWithAvailablePort(t *testing.T) {
-	type fields struct {
-		pid          int
-		cmd          []string
-		client       *http.Client
-		childAddress *url.URL
-		logger       log.Logger
-	}
+func Test_buildCmdStr(t *testing.T) {
 	type args struct {
 		cmdTpl string
+		la     string
+		t      *Target
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
+		want    string
 		wantErr bool
 	}{
-		{"Expect echo with address", fields{}, args{cmdTpl: "echo foobar --opt {{.ListenAddr}}"}, false},
-		{"Invalid command template string", fields{}, args{cmdTpl: "echo foobar {{.Example}}"}, true},
+		{
+			"Expand template correctly",
+			args{
+				cmdTpl: "somebin --opts-listenaddr {{.ListenAddr}} --opts-target {{.Target.Host}}:{{.Target.Port}}",
+				la:     "127.0.0.1:12345",
+				t:      &Target{Host: "192.168.10.10", Port: "11211"},
+			},
+			"somebin --opts-listenaddr 127.0.0.1:12345 --opts-target 192.168.10.10:11211",
+			false,
+		},
+		{
+			"Expand failured with unexpected placeholders",
+			args{
+				cmdTpl: "somebin --opts-listenaddr {{.FooBarAddr}}",
+				la:     "127.0.0.1:12345",
+				t:      &Target{Host: "192.168.10.10", Port: "11211"},
+			},
+			"",
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := &MemcachedWorker{
-				pid:          tt.fields.pid,
-				cmd:          tt.fields.cmd,
-				client:       tt.fields.client,
-				childAddress: tt.fields.childAddress,
-				logger:       tt.fields.logger,
+			got, err := buildCmdStr(tt.args.cmdTpl, tt.args.la, tt.args.t)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildCmdStr() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			if err := w.spawnWithAvailablePort(tt.args.cmdTpl); (err != nil) != tt.wantErr {
-				t.Errorf("MemcachedWorker.spawnWithAvailablePort() error = %v, wantErr %v", err, tt.wantErr)
+			if got != tt.want {
+				t.Errorf("buildCmdStr() = %v, want %v", got, tt.want)
 			}
 		})
 	}
