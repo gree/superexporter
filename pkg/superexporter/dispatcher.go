@@ -26,6 +26,7 @@ type WorkerInfo struct {
 	lastRequestAt time.Time
 }
 
+// A Dispatcher creates workers for each target and proxy request and manages their lifecycle.
 type Dispatcher struct {
 	workersInfo   map[string]*WorkerInfo
 	lastCleanupAt time.Time
@@ -39,16 +40,20 @@ func NewDispatcher(logger log.Logger) *Dispatcher {
 }
 
 func (d *Dispatcher) CleanupAll() {
-	level.Info(d.logger).Log("msg", "Cleanup All Workers")
+	level.Info(d.logger).Log("msg", "cleanup All Workers")
 	for _, wi := range d.workersInfo {
 		d.removeWorkerInfo(wi)
 	}
 }
 
+// Handler works as an HTTP proxy to a target given by the query parameter.
+// If the corresponding worker does not exist for the target, Handler creates a new worker.
+// Handler also triggers periodic cleanups of workers managed by Dispatcher.
 func (d *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 	defer d.periodicCleanup()
 	targetStr := r.URL.Query().Get("target")
-	level.Debug(d.logger).Log("msg", fmt.Sprintf("target:%s", targetStr))
+	kindStr := r.URL.Query().Get("kind")
+	level.Debug(d.logger).Log("msg", fmt.Sprintf("target:%s, kind:%s", targetStr, kindStr))
 
 	parsedUrl, err := url.Parse("http://" + targetStr)
 	if err != nil {
@@ -56,13 +61,18 @@ func (d *Dispatcher) Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	host, port, _ := net.SplitHostPort(parsedUrl.Host)
-	kind := "memcached"
+	var kind string
+	if kindStr == "" {
+		kind = "memcached"
+	} else {
+		kind = kindStr
+	}
 	level.Debug(d.logger).Log("msg", fmt.Sprintf("kind:%s host:%s port:%s", kind, host, port))
 	target := Target{Host: host, Port: port, kind: kind}
 
 	wi, ok := d.workersInfo[target.id()]
 	if !ok {
-		level.Info(d.logger).Log("msg", fmt.Sprintf("Create new worker for %s", target.id()))
+		level.Info(d.logger).Log("msg", fmt.Sprintf("create a new worker for %s", target.id()))
 		wi, err = d.addWorkerInfo(&target)
 		if err != nil {
 			level.Error(d.logger).Log("msg", "addWorkerInfo err", "err", err)
@@ -87,7 +97,7 @@ func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
 		return nil, errors.New("not supported")
 	}
 	if err != nil {
-		level.Error(d.logger).Log("msg", "CreateWorker failed", "err", err)
+		level.Error(d.logger).Log("msg", "Worker creation failed", "err", err)
 		return nil, err
 	}
 	wi := &WorkerInfo{worker: worker, target: t}
@@ -97,13 +107,13 @@ func (d *Dispatcher) addWorkerInfo(t *Target) (*WorkerInfo, error) {
 
 func (d *Dispatcher) removeWorkerInfo(wi *WorkerInfo) {
 	if err := wi.worker.Destroy(); err != nil {
-		level.Error(d.logger).Log("msg", "DestoryWorker failed", "err", err)
+		level.Error(d.logger).Log("msg", "worker.Destory failed", "err", err)
 	}
 	delete(d.workersInfo, wi.target.id())
 }
 
 func initSigHandler() {
-	// TODO: すでにハンドラ登録してあったらなんやかんや
+	// TODO: Error handling of when a handler is already registered.
 	waits := make(chan os.Signal, 1)
 	signal.Notify(waits, syscall.SIGCHLD)
 
