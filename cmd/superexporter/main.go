@@ -27,6 +27,7 @@ func main() {
 	http.HandleFunc("/scrape", dispatcher.Handler)
 	srv := &http.Server{Addr: ":9150"}
 	go func() {
+		level.Info(logger).Log("msg", "starting server with :9150")
 		if err := srv.ListenAndServe(); err != nil {
 			level.Error(logger).Log("msg", "ListenAndServe err", "err", err)
 			os.Exit(1)
