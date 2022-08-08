@@ -21,10 +21,11 @@ You can find the released binaries on https://github.com/prometheus/memcached_ex
 
 ### Run locally
 ```
-which memcached_exporter
+$ which memcached_exporter
 /some/path/to/memcached_exporter
-make
-./superexporter
+
+$ make
+$ ./superexporter
 ```
 
 To verify:
