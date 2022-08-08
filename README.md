@@ -1,5 +1,7 @@
 # Superexporter as the super server for memcached_exporter
 Superexporter is a super server for [memcached_exporter](https://github.com/prometheus/memcached_exporter) to support the multi-target pattern.
+You can scrape multiple memcahed metrics from a single superexporter endpoint by specifying the target in a query parameter.
+
 
 It is designed for multiple remote targets, such as SaaS managed memcached (GCP Memorystore, AWS Elasticache).
 
