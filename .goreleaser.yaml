@@ -43,8 +43,8 @@ dockers:
   - goos: linux
     goarch: amd64
     image_templates:
-      - 'ghcr.io/gree-main/{{ .ProjectName }}:{{ .Version }}'
-      - 'ghcr.io/gree-main/{{ .ProjectName }}:latest'
+      - 'ghcr.io/gree/{{ .ProjectName }}:{{ .Version }}'
+      - 'ghcr.io/gree/{{ .ProjectName }}:latest'
 
     build_flag_templates:
     - "--pull"
@@ -52,5 +52,5 @@ dockers:
     - "--label=org.opencontainers.image.title={{.ProjectName}}"
     - "--label=org.opencontainers.image.revision={{.FullCommit}}"
     - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.source=https://github.com/gree-main/{{ .ProjectName }}"
+    - "--label=org.opencontainers.image.source=https://github.com/gree/{{ .ProjectName }}"
     - "--platform=linux/arm64"
