@@ -15,13 +15,28 @@ Superexporter dynamically forks exporters for requested targets and acts as a HT
      \_ /path/to/memcached_exporter --memcached.address memcached-host-c:11211 --web.listen-address localhost:46123
 ```
 
-## Building and running
-### Prerequisite
+## Running the exporter
+### Docker image
 
+```
+docker run -p 9150:9150 ghcr.io/gree/superexporter:latest
+```
+
+To verify:
+```
+curl 'localhost:9150/scrape?target=your-memcached-host:11211'
+```
+
+### Pre-built binary
+
+Pre-built binary is available at [the releases](https://github.com/gree/superexporter/releases).
+
+### Build from source
+#### Prerequisite
 The superexporter needs the memcached_exporter executable in PATH.
 You can find the released binaries on https://github.com/prometheus/memcached_exporter/releases.
 
-### Run locally
+#### Build and run
 ```
 $ which memcached_exporter
 /some/path/to/memcached_exporter
@@ -36,7 +51,7 @@ curl 'localhost:9150/scrape?target=your-memcached-host:11211'
 ```
 
 ### Prometheus configuration for multiple memcached hosts
-Use `GET superexporter-host:9150/scrape` endpoint with `target=<memcached_addr:port>` parameter like [redis_exporter](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts). 
+Use `GET superexporter-host:9150/scrape` endpoint with `target=<memcached_addr:port>` parameter like [redis_exporter](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts).
 
 An example with `static_configs` is here:
 ```
