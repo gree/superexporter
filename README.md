@@ -15,6 +15,19 @@ Superexporter dynamically forks exporters for requested targets and acts as a HT
      \_ /path/to/memcached_exporter --memcached.address memcached-host-c:11211 --web.listen-address localhost:46123
 ```
 
+```mermaid
+sequenceDiagram
+    participant prometheus
+    participant superexporter
+    participant memcached_exporter 
+    Note right of memcached_exporter: exporter for memcached-host-N
+    prometheus->>superexporter: GET /scrape?target=memcached-host-N:11211
+      superexporter->>memcached_exporter: proxy
+        Note right of superexporter: fork & exec exporter if not exist
+      memcached_exporter-->>superexporter: respond metrics
+    superexporter-->>prometheus: respond metrics
+```
+
 ## Running the exporter
 ### Docker image
 
