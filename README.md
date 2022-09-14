@@ -27,6 +27,7 @@ sequenceDiagram
       memcached_exporter-->>superexporter: respond metrics
     superexporter-->>prometheus: respond metrics
 ```
+And it cleans up child exporters that have not been requested for several minutes.
 
 ## Running the exporter
 ### Docker image
