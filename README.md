@@ -83,6 +83,13 @@ An example with `static_configs` is here:
       target_label: instance
     - target_label: __address__
       replacement: superexporter-host:9150
+
+  ## config for scraping the superexporter itself
+  - job_name: superexporter
+    metrics_path: /metrics
+    static_configs:
+    - targets
+      - superexporter-host:9150
 ```
 
 Of course, you can use other `xxx_sd_config`s. For example, this is for the case for `file_sd_config`.
@@ -99,6 +106,13 @@ Of course, you can use other `xxx_sd_config`s. For example, this is for the case
       target_label: instance
     - target_label: __address__
       replacement: superexporter-host:9150
+
+  ## config for scraping the superexporter itself
+  - job_name: superexporter
+    metrics_path: /metrics
+    static_configs:
+    - targets
+      - superexporter-host:9150
 ```
 Where `target-memcached-instances.json` is the following content:
 ```

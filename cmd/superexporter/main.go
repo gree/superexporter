@@ -10,6 +10,7 @@ import (
 	"superexporter/pkg/superexporter"
 
 	"github.com/go-kit/log/level"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -23,7 +24,9 @@ func main() {
 	logger := promlog.New(promlogConfig)
 
 	dispatcher := superexporter.NewDispatcher(logger)
+	dispatcher.RecordMetrics()
 
+	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/scrape", dispatcher.Handler)
 	srv := &http.Server{Addr: ":9150"}
 	go func() {
