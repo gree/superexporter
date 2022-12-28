@@ -72,7 +72,7 @@ An example with `static_configs` is here:
   - job_name: memcached
     metrics_path: /scrape
     static_configs:
-    - targets
+    - targets:
       - memcached-host-a:11211
       - memcached-host-b:11211
       - memcached-host-c:11211
@@ -88,7 +88,7 @@ An example with `static_configs` is here:
   - job_name: superexporter
     metrics_path: /metrics
     static_configs:
-    - targets
+    - targets:
       - superexporter-host:9150
 ```
 
@@ -111,7 +111,7 @@ Of course, you can use other `xxx_sd_config`s. For example, this is for the case
   - job_name: superexporter
     metrics_path: /metrics
     static_configs:
-    - targets
+    - targets:
       - superexporter-host:9150
 ```
 Where `target-memcached-instances.json` is the following content:
